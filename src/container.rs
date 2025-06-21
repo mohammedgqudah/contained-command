@@ -63,6 +63,16 @@ impl Container {
                 // Make the container root a mount.
                 Mount::new(c"/tmp/bbox").bind(c"/tmp/bbox").mount().unwrap();
 
+                Mount::new(c"/tmp/bbox/proc")
+                    .create(c"proc", c"proc")
+                    .mount()
+                    .unwrap();
+
+                Mount::new(c"/tmp/bbox/sys")
+                    .create(c"sysfs", c"sys")
+                    .mount()
+                    .unwrap();
+
                 chroot("/").unwrap();
                 self.do_exec()?;
             }

@@ -1,10 +1,6 @@
 //! mount(2) and umount2 helpers.
 
-use std::{
-    ffi::{CStr, CString},
-    marker::PhantomData,
-    path::Path,
-};
+use std::{ffi::CStr, marker::PhantomData};
 
 pub fn mount(
     source: Option<&CStr>,
@@ -36,11 +32,13 @@ pub struct Mount<'a> {
 // ConfiguredMount markers
 pub struct ActionSetPropagation;
 pub struct ActionBind;
+pub struct ActionCreate;
 
 pub struct ConfiguredMount<'a, Action> {
     flags: u64,
     target: &'a CStr,
     source: Option<&'a CStr>,
+    fs_type: Option<&'a CStr>,
     _action: PhantomData<Action>,
 }
 
@@ -75,6 +73,13 @@ impl<'a> ConfiguredMount<'a, ActionBind> {
     pub fn recursive(mut self) -> Self {
         self.flags |= libc::MS_REC;
         self
+    }
+}
+
+impl<'a> ConfiguredMount<'a, ActionCreate> {
+    /// Create a new mount.
+    pub fn mount(self) -> Result<(), std::io::Error> {
+        mount(self.source, Some(self.target), self.fs_type, self.flags)
     }
 }
 
@@ -117,6 +122,7 @@ impl<'a> Mount<'a> {
             flags: self.flags | propagation_type as u64,
             target: self.target,
             source: None,
+            fs_type: None,
             _action: PhantomData,
         }
     }
@@ -126,6 +132,22 @@ impl<'a> Mount<'a> {
             flags: self.flags | libc::MS_BIND,
             target: self.target,
             source: Some(source),
+            fs_type: None,
+            _action: PhantomData,
+        }
+    }
+
+    /// Create a new mount.
+    pub fn create(
+        self,
+        fs_type: &'a CStr,
+        source: &'a CStr,
+    ) -> ConfiguredMount<'a, ActionCreate> {
+        ConfiguredMount {
+            flags: self.flags,
+            target: self.target,
+            source: Some(source),
+            fs_type: Some(fs_type),
             _action: PhantomData,
         }
     }
