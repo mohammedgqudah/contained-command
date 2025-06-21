@@ -151,4 +151,29 @@ impl<'a> Mount<'a> {
             _action: PhantomData,
         }
     }
+
+    /// Mount the filesystem as read-only
+    pub fn readonly(mut self) -> Self {
+        self.flags |= libc::MS_RDONLY;
+        self
+    }
+
+    /// Do not allow access to devices on this filesystem.
+    pub fn no_dev(mut self) -> Self {
+        self.flags |= libc::MS_NODEV;
+        self
+    }
+
+    /// Do not honor set user/group id bits or file capabilities when executing programs from this
+    /// filesystem.
+    pub fn no_suid(mut self) -> Self {
+        self.flags |= libc::MS_NOSUID;
+        self
+    }
+
+    /// Do not allow programs to be executed from this filesystem
+    pub fn no_exec(mut self) -> Self {
+        self.flags |= libc::MS_NOEXEC;
+        self
+    }
 }

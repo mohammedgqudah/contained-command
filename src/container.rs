@@ -64,11 +64,18 @@ impl Container {
                 Mount::new(c"/tmp/bbox").bind(c"/tmp/bbox").mount().unwrap();
 
                 Mount::new(c"/tmp/bbox/proc")
+                    .no_dev()
+                    .no_suid()
+                    .no_exec()
                     .create(c"proc", c"proc")
                     .mount()
                     .unwrap();
 
                 Mount::new(c"/tmp/bbox/sys")
+                    .readonly()
+                    .no_dev()
+                    .no_suid()
+                    .no_exec()
                     .create(c"sysfs", c"sys")
                     .mount()
                     .unwrap();
