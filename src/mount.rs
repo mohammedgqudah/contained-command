@@ -2,28 +2,6 @@
 
 use std::{ffi::CStr, marker::PhantomData};
 
-pub fn mount(
-    source: Option<&CStr>,
-    target: Option<&CStr>,
-    fs_type: Option<&CStr>,
-    mount_flags: u64,
-) -> Result<(), std::io::Error> {
-    let result = unsafe {
-        libc::mount(
-            source.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
-            target.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
-            fs_type.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
-            mount_flags,
-            std::ptr::null(),
-        )
-    };
-    if result != 0 {
-        Err(std::io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
-}
-
 pub struct Mount<'a> {
     flags: u64,
     target: &'a CStr,
@@ -175,5 +153,40 @@ impl<'a> Mount<'a> {
     pub fn no_exec(mut self) -> Self {
         self.flags |= libc::MS_NOEXEC;
         self
+    }
+}
+
+pub fn mount(
+    source: Option<&CStr>,
+    target: Option<&CStr>,
+    fs_type: Option<&CStr>,
+    mount_flags: u64,
+) -> Result<(), std::io::Error> {
+    let result = unsafe {
+        libc::mount(
+            source.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
+            target.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
+            fs_type.map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
+            mount_flags,
+            std::ptr::null(),
+        )
+    };
+    if result != 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+pub fn umount2<T: AsRef<CStr>>(
+    target: T,
+    umount_flags: i32,
+) -> Result<(), std::io::Error> {
+    let result =
+        unsafe { libc::umount2(target.as_ref().as_ptr(), umount_flags) };
+    if result != 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(())
     }
 }

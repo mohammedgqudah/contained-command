@@ -1,3 +1,5 @@
+#![feature(never_type, panic_always_abort)]
+
 pub mod clone3;
 pub mod close_range;
 pub mod container;

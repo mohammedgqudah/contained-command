@@ -9,7 +9,7 @@ use crate::{
     clone3::{CloneResult, clone3},
     close_range::CloseRangeBuilder,
     error::Result,
-    mount::{Mount, MountPropagation},
+    mount::{Mount, MountPropagation, umount2},
 };
 
 pub struct Container {
@@ -109,9 +109,12 @@ impl Container {
                 unsafe {
                     libc::waitpid(child.pid as i32, std::ptr::null_mut(), 0)
                 };
-                return Ok(());
+
+                Ok(())
             }
             CloneResult::Child => {
+                std::panic::always_abort();
+
                 drop(parent_sock);
                 // Ensure all file descriptors are closed when executing the
                 // child process so they are not inherited by
@@ -143,7 +146,6 @@ impl Container {
 
                 // Make the container root a mount.
                 Mount::new(c"/tmp/bbox").bind(c"/tmp/bbox").mount().unwrap();
-
                 Mount::new(c"/tmp/bbox/proc")
                     .no_dev()
                     .no_suid()
@@ -162,32 +164,31 @@ impl Container {
                     .unwrap();
 
                 unsafe {
+                    libc::mkdir(c"/tmp/bbox/old_root".as_ptr(), 0);
                     libc::syscall(
                         libc::SYS_pivot_root,
                         c"/tmp/bbox".as_ptr(),
                         c"/tmp/bbox/old_root".as_ptr(),
                     );
-                    // TODO: detach /old_root & rm old_root
+                    umount2(c"/old_root", libc::MNT_DETACH).unwrap();
+                    libc::rmdir(c"/old_root".as_ptr());
                     libc::chdir(c"/".as_ptr());
                 };
-                self.do_exec(argv.as_ptr(), envp.as_ptr()).unwrap();
 
-                println!("exec failed");
+                let Err(err) = self.do_exec(argv.as_ptr(), envp.as_ptr());
+
+                println!("exec failed: {}", err);
+                unsafe { libc::_exit(1) };
             }
-        };
-        Ok(())
+        }
     }
 
     fn do_exec(
         &self,
         argv: *const *const i8,
         envp: *const *const i8,
-    ) -> std::result::Result<(), std::io::Error> {
-        let result = unsafe { libc::execve(self.cmd.as_ptr(), argv, envp) };
-        if result != 0 {
-            Err(std::io::Error::last_os_error())
-        } else {
-            Ok(())
-        }
+    ) -> std::result::Result<!, std::io::Error> {
+        unsafe { libc::execve(self.cmd.as_ptr(), argv, envp) };
+        Err(std::io::Error::last_os_error())
     }
 }
