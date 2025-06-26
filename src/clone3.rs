@@ -1,4 +1,4 @@
-use std::mem;
+use std::{io::Error, mem};
 
 pub struct Child {
     pub tid: u64,
@@ -32,7 +32,7 @@ pub enum CloneResult {
 ///     }
 /// }
 /// ```
-pub unsafe fn clone3(flags: u64) -> Result<CloneResult, ()> {
+pub unsafe fn clone3(flags: u64) -> Result<CloneResult, std::io::Error> {
     let flags = flags | libc::CLONE_PARENT_SETTID as u64;
     let mut child_tid: mem::MaybeUninit<u64> = std::mem::MaybeUninit::uninit();
 
@@ -51,10 +51,16 @@ pub unsafe fn clone3(flags: u64) -> Result<CloneResult, ()> {
     };
 
     // SAFETY: is the caller’s responsibility.
-    let pid = unsafe { libc::syscall(libc::SYS_clone3, clone_args) };
+    let pid = unsafe {
+        libc::syscall(
+            libc::SYS_clone3,
+            &clone_args as *const libc::clone_args,
+            size_of::<libc::clone_args>(),
+        )
+    };
 
     if pid < 0 {
-        return Err(());
+        return Err(Error::last_os_error());
     };
 
     // SAFETY: The clone syscall finished successfuly and it initilized the
