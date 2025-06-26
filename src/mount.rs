@@ -164,8 +164,8 @@ impl<'a> Mount<'a> {
         self
     }
 
-    /// Do not honor set user/group id bits or file capabilities when executing programs from this
-    /// filesystem.
+    /// Do not honor set user/group id bits or file capabilities when executing
+    /// programs from this filesystem.
     pub fn no_suid(mut self) -> Self {
         self.flags |= libc::MS_NOSUID;
         self

@@ -2,17 +2,14 @@ use std::{
     ffi::{CString, OsStr},
     io::{Read, Write},
     os::unix::net::UnixStream,
-    thread::sleep,
     time::Duration,
 };
 
 use crate::{
-    CuriumError,
     clone3::{CloneResult, clone3},
     close_range::CloseRangeBuilder,
     error::Result,
     mount::{Mount, MountPropagation},
-    uid_map::map_uid,
 };
 
 pub struct Container {
