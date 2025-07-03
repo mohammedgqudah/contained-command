@@ -14,12 +14,13 @@ use crate::{
 
 pub struct Container {
     cmd: CString,
+    root: String,
     args: Vec<CString>,
     env: Vec<CString>,
 }
 
 impl Container {
-    pub fn new<C: AsRef<OsStr>>(cmd: C) -> Self {
+    pub fn new<C: AsRef<OsStr>>(root: String, cmd: C) -> Self {
         let cmd = CString::new(cmd.as_ref().as_encoded_bytes())
             .expect("Null in the command");
         let mut args = Vec::with_capacity(2);
@@ -28,6 +29,7 @@ impl Container {
         Self {
             cmd,
             args,
+            root,
             env: vec![],
         }
     }
@@ -69,6 +71,14 @@ impl Container {
     pub fn spawn(&mut self) -> Result<()> {
         let argv = self.get_argv();
         let envp = self.get_envp();
+
+        let rootfs = CString::new(self.root.clone()).unwrap();
+        let procfs = CString::new(format!("{}/proc", self.root))
+            .expect("procfs will not include null bytes");
+        let sysfs = CString::new(format!("{}/sys", self.root))
+            .expect("sysfs will not include null bytes");
+        let old_root = CString::new(format!("{}/old_root", self.root))
+            .expect("old_root will not include null bytes");
 
         let (mut parent_sock, mut child_sock) = match UnixStream::pair() {
             Ok((sock1, sock2)) => (sock1, sock2),
@@ -145,8 +155,11 @@ impl Container {
                     .unwrap();
 
                 // Make the container root a mount.
-                Mount::new(c"/tmp/bbox").bind(c"/tmp/bbox").mount().unwrap();
-                Mount::new(c"/tmp/bbox/proc")
+                Mount::new(rootfs.as_c_str())
+                    .bind(rootfs.as_c_str())
+                    .mount()
+                    .unwrap();
+                Mount::new(procfs.as_c_str())
                     .no_dev()
                     .no_suid()
                     .no_exec()
@@ -154,7 +167,7 @@ impl Container {
                     .mount()
                     .unwrap();
 
-                Mount::new(c"/tmp/bbox/sys")
+                Mount::new(sysfs.as_c_str())
                     .readonly()
                     .no_dev()
                     .no_suid()
@@ -164,11 +177,11 @@ impl Container {
                     .unwrap();
 
                 unsafe {
-                    libc::mkdir(c"/tmp/bbox/old_root".as_ptr(), 0);
+                    libc::mkdir(old_root.as_ptr(), 0);
                     libc::syscall(
                         libc::SYS_pivot_root,
-                        c"/tmp/bbox".as_ptr(),
-                        c"/tmp/bbox/old_root".as_ptr(),
+                        rootfs.as_ptr(),
+                        old_root.as_ptr(),
                     );
                     umount2(c"/old_root", libc::MNT_DETACH).unwrap();
                     libc::rmdir(c"/old_root".as_ptr());
